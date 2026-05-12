@@ -1,11 +1,9 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Modal,
-  ToastAndroid, Share, useWindowDimensions, StyleSheet, Pressable,
+  ToastAndroid, Share, StyleSheet, Pressable,
 } from 'react-native';
-import { captureRef } from 'react-native-view-shot';
 import * as Clipboard from 'expo-clipboard';
-import * as Sharing from 'expo-sharing';
 import { X } from 'lucide-react-native';
 import { useAppStore, WEEK_HISTORY_MOCK } from '../store/useAppStore';
 import {
@@ -46,14 +44,6 @@ const useStyles = makeStyles(c => ({
   textBoxText:  { fontSize: 13, lineHeight: 22 },
   sheetCopyBtn: { height: 52, borderRadius: 16, alignItems: 'center' as const, justifyContent: 'center' as const },
   sheetCopyTxt: { fontSize: 16, fontWeight: '700' as const, color: '#fff' },
-  // Share modal
-  shareModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center' as const, alignItems: 'center' as const, padding: 16 },
-  shareCardWrap: { borderRadius: 20, overflow: 'hidden' as const, width: '100%' as any },
-  shareActions:  { flexDirection: 'row' as const, gap: 10, marginTop: 14, width: '100%' as any },
-  shareCancelBtn:{ flex: 1, height: 48, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center' as const, justifyContent: 'center' as const },
-  shareCancelTxt:{ fontSize: 15, fontWeight: '600' as const, color: '#fff' },
-  shareConfirmBtn:{ flex: 2, height: 48, borderRadius: 14, backgroundColor: '#1a8273', alignItems: 'center' as const, justifyContent: 'center' as const },
-  shareConfirmTxt:{ fontSize: 15, fontWeight: '700' as const, color: '#fff' },
 }));
 
 // ─── Main screen ───────────────────────────────────────────
@@ -67,12 +57,7 @@ export function RecapScreen({ onClose }: Props) {
   const streak     = useAppStore(s => s.streak);
   const bestStreak = useAppStore(s => s.bestStreak);
 
-  const [copySheetOpen,  setCopySheetOpen]  = useState(false);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [sharing,        setSharing]        = useState(false);
-
-  // ref para o card dentro do Modal — está VISÍVEL quando o modal abre
-  const shareCardRef = useRef<View>(null);
+  const [copySheetOpen, setCopySheetOpen] = useState(false);
 
   const stats = useMemo(
     () => computeDayStats(log, goalMl, streak, bestStreak),
@@ -95,47 +80,14 @@ export function RecapScreen({ onClose }: Props) {
     ? `Faltam ${7 - stats.streak} dias pra "Semana hidratada".`
     : '7 dias seguidos. Semana hidratada! 🎉';
 
-  // ── Captura o card visível no Modal e compartilha ──
-  async function captureAndShare() {
-    if (sharing) return;
-    setSharing(true);
+  async function handleShare() {
     try {
-      // Aguarda o layout do card dentro do Modal
-      await new Promise(r => setTimeout(r, 350));
-
-      if (!shareCardRef.current) throw new Error('ref not ready');
-
-      const uri = await captureRef(shareCardRef.current, {
-        format: 'png',
-        quality: 0.95,
-        result: 'tmpfile',
-      });
-
-      // Copia o texto pro clipboard simultaneamente
-      await Clipboard.setStringAsync(shareText);
-
-      // Fecha o modal antes de abrir o share sheet nativo
-      setShareModalOpen(false);
-      await new Promise(r => setTimeout(r, 200));
-
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'image/png',
-          dialogTitle: 'Compartilhar resumo do Copinho',
-          UTI: 'public.png',
-        });
-      } else {
-        await Share.share({ message: shareText });
-      }
+      await Share.share({ message: shareText });
     } catch (err) {
-      setShareModalOpen(false);
       const msg = String(err);
       if (!msg.toLowerCase().includes('cancel')) {
-        ToastAndroid.show('Não foi possível gerar a imagem', ToastAndroid.LONG);
+        ToastAndroid.show('Não foi possível compartilhar', ToastAndroid.SHORT);
       }
-    } finally {
-      setSharing(false);
     }
   }
 
@@ -179,7 +131,7 @@ export function RecapScreen({ onClose }: Props) {
 
         <TouchableOpacity
           style={[styles.shareBtn, { backgroundColor: colors.teal700 }]}
-          onPress={() => setShareModalOpen(true)}
+          onPress={handleShare}
           activeOpacity={0.85}
         >
           <Text style={styles.shareBtnText}>📤 Compartilhar</Text>
@@ -220,57 +172,11 @@ export function RecapScreen({ onClose }: Props) {
         </View>
       </Modal>
 
-      {/* ── Modal de preview da imagem (Compartilhar) ── */}
-      <Modal
-        visible={shareModalOpen}
-        animationType="fade"
-        transparent
-        onRequestClose={() => !sharing && setShareModalOpen(false)}
-      >
-        <View style={styles.shareModalOverlay}>
-          <ScrollView
-            style={{ width: '100%' }}
-            contentContainerStyle={{ alignItems: 'center' }}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Card capturável — visível no Modal */}
-            <View
-              ref={shareCardRef}
-              collapsable={false}
-              style={styles.shareCardWrap}
-            >
-              <ShareCard {...cardProps} />
-            </View>
-
-            <View style={styles.shareActions}>
-              <TouchableOpacity
-                style={styles.shareCancelBtn}
-                onPress={() => !sharing && setShareModalOpen(false)}
-                activeOpacity={0.7}
-                disabled={sharing}
-              >
-                <Text style={styles.shareCancelTxt}>Cancelar</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.shareConfirmBtn, sharing && { opacity: 0.6 }]}
-                onPress={captureAndShare}
-                activeOpacity={0.85}
-                disabled={sharing}
-              >
-                <Text style={styles.shareConfirmTxt}>
-                  {sharing ? 'Gerando…' : '📤 Compartilhar agora'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
-      </Modal>
     </View>
   );
 }
 
-// ─── ShareCard — card compacto sem ScrollView (captura + Modal) ────
+// ─── RecapBody shared types ──────────────────────────────────
 
 interface CardProps {
   stats: DayStats;
@@ -280,90 +186,6 @@ interface CardProps {
   pctStr: number;
   streakBadgeSub: string;
   colors: any;
-}
-
-function ShareCard({ stats, cfg, insight, dateStr, pctStr, streakBadgeSub, colors }: CardProps) {
-  return (
-    <View style={{ backgroundColor: colors.paper }}>
-      {/* Header */}
-      <View style={{ backgroundColor: cfg.headerBg, padding: 20, paddingBottom: 22, overflow: 'hidden', position: 'relative' }}>
-        <Text style={{ position: 'absolute', right: -10, top: -8, fontSize: 100, opacity: 0.15, lineHeight: 110 }}>
-          {cfg.emoji}
-        </Text>
-        <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 1.4, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', marginBottom: 10 }}>
-          COPINHO · {dateStr}
-        </Text>
-        <Text style={{ fontSize: 36, lineHeight: 42, marginBottom: 4 }}>{cfg.emoji}</Text>
-        <Text style={{ fontSize: 22, fontWeight: '700', color: '#fff', lineHeight: 26 }}>
-          {cfg.getTitle(stats)}
-        </Text>
-        <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 4 }}>
-          {cfg.getSub(stats)}
-        </Text>
-      </View>
-
-      {/* Body */}
-      <View style={{ padding: 14, gap: 10 }}>
-        {/* Hero */}
-        <View style={{ backgroundColor: cfg.chipBg, borderRadius: 14, padding: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
-          <Text style={{ fontSize: 36, fontWeight: '700', color: cfg.chipFg, lineHeight: 40 }}>
-            {(stats.ml / 1000).toFixed(1)}L
-          </Text>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: cfg.chipFg, opacity: 0.8 }}>
-            {pctStr}% da meta
-          </Text>
-        </View>
-
-        {/* Timeline */}
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          {([
-            ['🌅', 'PRIMEIRO',  stats.firstTime ?? '—'],
-            ['🌙', 'ÚLTIMO',    stats.lastTime ?? '—'],
-            ['⏱',  'INTERVALO', stats.avgGapStr],
-          ] as [string, string, string][]).map(([icon, label, value]) => (
-            <View key={label} style={{ flex: 1, backgroundColor: colors.paper2, borderRadius: 10, padding: 8, alignItems: 'center' }}>
-              <Text style={{ fontSize: 13 }}>{icon}</Text>
-              <Text style={{ fontSize: 9, fontWeight: '700', color: colors.inkMute, textTransform: 'uppercase', marginTop: 1 }}>{label}</Text>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.teal900, marginTop: 1 }}>{value}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Sips */}
-        <View style={{ padding: 11, paddingHorizontal: 13, borderRadius: 12, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line }}>
-          <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 3 }}>
-            📊 {stats.sips} gole{stats.sips !== 1 ? 's' : ''} · {stats.avgSip}ml médio
-          </Text>
-          {stats.notes.map(n => <Text key={n} style={{ fontSize: 12, color: colors.inkMute }}>· {n}</Text>)}
-          {stats.sips === 0 && <Text style={{ fontSize: 12, color: colors.inkMute }}>· nada registrado hoje</Text>}
-        </View>
-
-        {/* Insight */}
-        <View style={{ backgroundColor: colors.teal50, borderRadius: 12, padding: 12, paddingHorizontal: 14, borderLeftWidth: 3, borderLeftColor: colors.teal500 }}>
-          <Text style={{ fontSize: 10, fontWeight: '700', color: colors.teal700, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 }}>
-            💬 O COPINHO NOTOU
-          </Text>
-          <Text style={{ fontSize: 13, color: colors.ink, lineHeight: 18 }}>"{insight}"</Text>
-        </View>
-
-        {/* Streak */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: `${colors.coralSoft}60`, borderRadius: 12, padding: 11, borderWidth: 1, borderColor: colors.coralSoft }}>
-          <Text style={{ fontSize: 20 }}>{stats.streak > 0 ? '🔥' : '💔'}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.ink }}>
-              {stats.streak > 0 ? `Sequência: ${stats.streak} dias` : 'Sem sequência'}
-            </Text>
-            <Text style={{ fontSize: 11, color: colors.inkMute, marginTop: 1 }}>{streakBadgeSub}</Text>
-          </View>
-        </View>
-
-        {/* Watermark */}
-        <Text style={{ fontSize: 11, color: colors.inkMute, textAlign: 'center', paddingTop: 2 }}>
-          💧 enviado pelo Copinho
-        </Text>
-      </View>
-    </View>
-  );
 }
 
 // ─── RecapBody — versão scrollável para a tela principal ─────
