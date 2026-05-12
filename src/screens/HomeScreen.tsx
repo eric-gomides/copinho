@@ -12,6 +12,7 @@ interface HomeScreenProps {
   onGoToBadges: () => void;
   onEditGoal: () => void;
   onPersonalize: () => void;
+  onGoToRecap: () => void;
 }
 
 function getGreeting(pct: number): [string, string] {
@@ -75,7 +76,7 @@ const useStyles = makeStyles(c => ({
   logDotsBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: c.paper2, alignItems: 'center' as const, justifyContent: 'center' as const },
 }));
 
-export function HomeScreen({ onOpenAddSheet, onGoToBadges, onEditGoal, onPersonalize }: HomeScreenProps) {
+export function HomeScreen({ onOpenAddSheet, onGoToBadges, onEditGoal, onPersonalize, onGoToRecap }: HomeScreenProps) {
   const styles = useStyles();
   const { colors } = useTheme();
   const { log, goalMl, streak, addDrink, removeEntry, unlockedBadges, soundsMuted, setSoundsMuted, bottleColor, bottleShape } = useAppStore();
@@ -203,7 +204,7 @@ export function HomeScreen({ onOpenAddSheet, onGoToBadges, onEditGoal, onPersona
         <TouchableOpacity style={styles.ctaCard} activeOpacity={0.85} onPress={onGoToBadges}>
           <View style={styles.ctaIconBox}><Trophy size={22} color={colors.sun} strokeWidth={2} /></View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.ctaTitle}>{unlockedBadges.length} de 8 conquistas</Text>
+            <Text style={styles.ctaTitle}>{unlockedBadges.length} conquistas desbloqueadas</Text>
             <Text style={styles.ctaSubtitle}>
               {streak < 7 ? `Faltam ${7 - streak} dias pra Semana Hidratada` : 'Você desbloqueou a Semana Hidratada! 🎉'}
             </Text>
@@ -211,6 +212,8 @@ export function HomeScreen({ onOpenAddSheet, onGoToBadges, onEditGoal, onPersona
           <ChevronRight size={18} color="rgba(255,255,255,0.7)" />
         </TouchableOpacity>
       </View>
+
+      <RecapHomeCard onPress={onGoToRecap} pct={pct} colors={colors} />
     </ScrollView>
   );
 }
@@ -266,5 +269,33 @@ function LogRow({ entry, styles, colors, onRemove }: {
         <MoreHorizontal size={18} color={colors.inkMute} />
       </TouchableOpacity>
     </View>
+  );
+}
+
+function RecapHomeCard({ onPress, pct, colors }: { onPress: () => void; pct: number; colors: any }) {
+  const hour = new Date().getHours();
+  if (hour < 18) return null;
+
+  const emoji = pct >= 1 ? '🏆' : pct >= 0.7 ? '😬' : '🏜️';
+  const label = pct >= 1 ? 'Bateu a meta! Ver resumo completo' : 'Ver resumo de hoje';
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={{
+        marginHorizontal: Spacing.screenH, marginTop: 12, marginBottom: 4,
+        backgroundColor: colors.teal50, borderRadius: Radii.card,
+        padding: 14, paddingHorizontal: 16,
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        borderWidth: 1, borderColor: colors.teal300,
+      }}
+    >
+      <Text style={{ fontSize: 24 }}>{emoji}</Text>
+      <Text style={{ flex: 1, fontSize: FontSizes.body, fontWeight: '600', color: colors.teal700 }}>
+        {label}
+      </Text>
+      <ChevronRight size={16} color={colors.teal700} strokeWidth={2} />
+    </TouchableOpacity>
   );
 }

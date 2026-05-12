@@ -1,6 +1,16 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-  <item android:drawable="@color/splashscreen_background"/>
   <item>
-    <bitmap android:gravity="center" android:src="@drawable/splashscreen_logo"/>
+    <shape>
+      <gradient
+        android:startColor="#f58b6b"
+        android:endColor="#f7d97a"
+        android:angle="45"
+        android:type="linear"/>
+    </shape>
   </item>
+  <item
+    android:width="140dp"
+    android:height="140dp"
+    android:gravity="center"
+    android:drawable="@drawable/ic_launcher_foreground"/>
 </layer-list>

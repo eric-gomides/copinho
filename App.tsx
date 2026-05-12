@@ -17,11 +17,13 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, Easing,
 } from 'react-native-reanimated';
 
+import * as Notifications from 'expo-notifications';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { HomeScreen }       from './src/screens/HomeScreen';
 import { HistoryScreen }    from './src/screens/HistoryScreen';
 import { BadgesScreen }     from './src/screens/BadgesScreen';
 import { RemindersScreen }  from './src/screens/RemindersScreen';
+import { RecapScreen }      from './src/screens/RecapScreen';
 import { AddSheet }         from './src/components/AddSheet';
 import { BottomNav }        from './src/components/BottomNav';
 import { GoalSheet }         from './src/components/GoalSheet';
@@ -31,7 +33,7 @@ import { Colors, FontSizes }    from './src/theme/tokens';
 import { SHADES }               from './src/theme/colorShades';
 import { initHealthConnect } from './src/utils/healthConnect';
 import { prewarm }           from './src/utils/sounds';
-import { setupNotificationHandler, rescheduleOnStartup } from './src/utils/notifications';
+import { setupNotificationHandler, rescheduleOnStartup, scheduleRecapNotification } from './src/utils/notifications';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { useBoolean }           from './src/hooks/useBoolean';
 
@@ -60,6 +62,8 @@ export default function App() {
     prewarm();
     // Reagenda notificações caso tenham sido apagadas (ex: após reinstalar o APK)
     rescheduleOnStartup(notificationsEnabled, reminders).catch(() => {});
+    // Agenda notificação diária de recap às 23h
+    if (notificationsEnabled) scheduleRecapNotification().catch(() => {});
     // Initialize Health Connect only — permissions requested lazily on first drink
     const timer = setTimeout(() => {
       initHealthConnect().catch(() => {});
@@ -105,6 +109,16 @@ function AppShell({ screen, setScreen, showAddSheet, openAddSheet, closeAddSheet
   const topBg = SHADES[bottleColor]?.bg50 ?? colors.teal50;
   const showOnboarding = !hasOnboarded;
 
+  // Navigate to recap when user taps the 23h notification
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener(response => {
+      if (response.notification.request.content.data?.type === 'recap') {
+        setScreen('recap');
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.paper }}>
       <SafeAreaProvider>
@@ -118,19 +132,20 @@ function AppShell({ screen, setScreen, showAddSheet, openAddSheet, closeAddSheet
           <>
             <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 340, backgroundColor: topBg, opacity: 0.8 }} />
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-              {screen === 'home'        && <HomeScreen onOpenAddSheet={openAddSheet} onGoToBadges={() => setScreen('badges')} onEditGoal={openGoalSheet} onPersonalize={() => setScreen('personalize')} />}
+              {screen === 'home'        && <HomeScreen onOpenAddSheet={openAddSheet} onGoToBadges={() => setScreen('badges')} onEditGoal={openGoalSheet} onPersonalize={() => setScreen('personalize')} onGoToRecap={() => setScreen('recap')} />}
               {screen === 'history'    && <HistoryScreen onGoToReminders={() => setScreen('reminders')} />}
               {screen === 'badges'     && <BadgesScreen />}
               {screen === 'reminders'  && <RemindersScreen />}
               {screen === 'personalize'&& <PersonalizeScreen onBack={() => setScreen('home')} />}
+              {screen === 'recap'      && <RecapScreen onClose={() => setScreen('home')} />}
             </SafeAreaView>
-            <BottomNav current={screen} onNav={setScreen} onAdd={openAddSheet} />
+            {screen !== 'recap' && <BottomNav current={screen} onNav={setScreen} onAdd={openAddSheet} />}
             <AddSheet visible={showAddSheet} onClose={closeAddSheet} />
             <GoalSheet visible={showGoalSheet} onClose={closeGoalSheet} />
           </>
         )}
 
-        {showCelebration && <CelebrationOverlay />}
+        {showCelebration && <CelebrationOverlay onViewRecap={() => { useAppStore.getState().dismissCelebration(); setScreen('recap'); }} />}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -156,7 +171,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: st
 
 // ─── Celebration overlay ──────────────────────────────────
 
-function CelebrationOverlay() {
+function CelebrationOverlay({ onViewRecap }: { onViewRecap: () => void }) {
   const goalMl = useAppStore(s => s.goalMl);
   const goalLabel = goalMl % 1000 === 0
     ? `${goalMl / 1000}L`
@@ -177,13 +192,20 @@ function CelebrationOverlay() {
   }));
 
   return (
-    <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' } as any]}>
+    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       <Animated.View style={[StyleSheet.absoluteFill, styles.celebBackdrop, backdropStyle]} />
       {CONFETTI.map((c, i) => <ConfettiPiece key={i} {...c} />)}
       <Animated.View style={[styles.celebCard, cardStyle]}>
         <Text style={styles.celebEmoji}>🏆</Text>
         <Text style={styles.celebTitle}>META BATIDA!</Text>
         <Text style={styles.celebSub}>{goalLabel} em dia. Brinde pra você 🥂</Text>
+        <View style={{ height: 1, backgroundColor: 'rgba(0,0,0,0.06)', width: '100%', marginTop: 4 }} />
+        <Text
+          onPress={onViewRecap}
+          style={{ fontSize: FontSizes.body, color: Colors.teal700, fontWeight: '600', paddingVertical: 4 }}
+        >
+          Ver resumo do dia →
+        </Text>
       </Animated.View>
     </View>
   );

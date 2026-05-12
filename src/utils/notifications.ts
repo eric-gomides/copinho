@@ -43,6 +43,32 @@ export async function scheduleReminders(reminders: Reminder[]): Promise<void> {
 }
 
 /**
+ * Agenda notificação diária às 23h para o resumo do dia.
+ * Cancela a anterior antes de reagendar.
+ */
+export async function scheduleRecapNotification(): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of scheduled) {
+    if (n.content.data?.type === 'recap') {
+      await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+  }
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '📊 Copinho fez seu boletim',
+      body: 'Bora ver como foi seu dia de hidratação?',
+      sound: true,
+      data: { type: 'recap' },
+    },
+    trigger: {
+      type: SchedulableTriggerInputTypes.DAILY,
+      hour: 23,
+      minute: 0,
+    },
+  });
+}
+
+/**
  * Reagenda notificações ao abrir o app se o usuário já autorizou.
  * Garante que após reinstalar o APK os lembretes continuem funcionando.
  */

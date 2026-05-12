@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- drop body with teal gradient -->
+    <path
+        android:pathData="M54,20 C54,20 30,48 30,66 C30,82 40,92 54,92 C68,92 78,82 78,66 C78,48 54,20 54,20Z"
+        android:strokeColor="#0a4a47"
+        android:strokeWidth="2">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="54" android:startY="20"
+                android:endX="54"   android:endY="92"
+                android:type="linear">
+                <item android:offset="0" android:color="#edf8f4"/>
+                <item android:offset="1" android:color="#9dd4c7"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- left eye -->
+    <path android:pathData="M43.5,62 A2.5,2.5 0,1,0 48.5,62 A2.5,2.5 0,1,0 43.5,62Z"
+        android:fillColor="#0a4a47"/>
+
+    <!-- right eye -->
+    <path android:pathData="M59.5,62 A2.5,2.5 0,1,0 64.5,62 A2.5,2.5 0,1,0 59.5,62Z"
+        android:fillColor="#0a4a47"/>
+
+    <!-- smile -->
+    <path android:pathData="M46,72 Q54,80 62,72"
+        android:strokeColor="#0a4a47"
+        android:strokeWidth="2.5"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"/>
+
+    <!-- highlight -->
+    <path android:pathData="M40,48 A4,6 0,1,0 48,48 A4,6 0,1,0 40,48Z"
+        android:fillColor="#ffffff"
+        android:fillAlpha="0.6"/>
+</vector>

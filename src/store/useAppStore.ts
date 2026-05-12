@@ -9,7 +9,7 @@ import type { BottleColorId, BottleShapeId } from '../theme/colorShades';
 // ─── Types ──────────────────────────────────────────────────
 
 export type LiquidType = 'water' | 'tea' | 'coconut' | 'coffee' | 'juice';
-export type Screen = 'onboarding' | 'home' | 'history' | 'badges' | 'reminders' | 'personalize';
+export type Screen = 'onboarding' | 'home' | 'history' | 'badges' | 'reminders' | 'personalize' | 'recap';
 
 export interface DrinkEntry {
   id: string;
