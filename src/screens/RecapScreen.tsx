@@ -1,9 +1,9 @@
 import React, { useRef, useState, useMemo } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity,
-  ToastAndroid, Share, useWindowDimensions,
+  View, Text, ScrollView, TouchableOpacity, Modal,
+  ToastAndroid, Share, useWindowDimensions, StyleSheet, Pressable,
 } from 'react-native';
-import ViewShot, { ViewShotRef } from 'react-native-view-shot';
+import { captureRef } from 'react-native-view-shot';
 import * as Clipboard from 'expo-clipboard';
 import * as Sharing from 'expo-sharing';
 import { X } from 'lucide-react-native';
@@ -15,68 +15,72 @@ import {
 import { FontSizes, Spacing, Radii } from '../theme/tokens';
 import { makeStyles, useTheme } from '../theme/ThemeContext';
 
-interface Props {
-  onClose: () => void;
-}
+interface Props { onClose: () => void; }
+
+// ─── Styles ────────────────────────────────────────────────
 
 const useStyles = makeStyles(c => ({
-  root: { flex: 1, backgroundColor: c.paper },
-  header: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 22, overflow: 'hidden' as const, position: 'relative' as const },
-  headerEmojiBg: { position: 'absolute' as const, right: -16, top: -10, fontSize: 140, opacity: 0.15, lineHeight: 150 },
+  root:         { flex: 1, backgroundColor: c.paper },
+  header:       { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 22, overflow: 'hidden' as const, position: 'relative' as const },
+  headerBgEmoji:{ position: 'absolute' as const, right: -16, top: -10, fontSize: 140, opacity: 0.15, lineHeight: 150 },
   headerTopRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, alignItems: 'center' as const, marginBottom: 14 },
-  headerLabel: { fontSize: 11, fontWeight: '700' as const, letterSpacing: 1.4, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase' as const },
-  closeBtn: { width: 28, height: 28, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center' as const, justifyContent: 'center' as const },
-  headerEmoji: { fontSize: 44, lineHeight: 52, marginBottom: 6 },
-  headerTitle: { fontSize: 28, fontWeight: '700' as const, color: '#fff', lineHeight: 32 },
-  headerSub: { fontSize: 14, color: 'rgba(255,255,255,0.9)', marginTop: 6 },
-  body: { flex: 1 },
-  bodyContent: { padding: 18, paddingHorizontal: 22, gap: 14 },
-  heroChip: { borderRadius: 18, padding: 16, paddingHorizontal: 18, flexDirection: 'row' as const, alignItems: 'baseline' as const, gap: 12 },
-  heroNum: { fontSize: 44, fontWeight: '700' as const, lineHeight: 48 },
-  heroLabel: { fontSize: 13, fontWeight: '600' as const, opacity: 0.8 },
-  timelineGrid: { flexDirection: 'row' as const, gap: 8 },
-  timelineCell: { flex: 1, borderRadius: 12, padding: 10, alignItems: 'center' as const },
-  timelineCellEmoji: { fontSize: 14 },
-  timelineCellLabel: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.4, textTransform: 'uppercase' as const, marginTop: 2 },
-  timelineCellVal: { fontSize: 16, fontWeight: '700' as const, marginTop: 2 },
-  sipsCard: { padding: 12, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1 },
-  sipsTitle: { fontSize: 13, marginBottom: 4 },
-  sipsNote: { fontSize: 12 },
-  insightCard: { padding: 14, paddingHorizontal: 16, borderRadius: 16, borderLeftWidth: 3 },
-  insightCaption: { fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.8, textTransform: 'uppercase' as const, marginBottom: 4 },
-  insightText: { fontSize: 14, lineHeight: 20 },
-  streakCard: { padding: 12, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10 },
-  streakEmoji: { fontSize: 22 },
-  streakTitle: { fontSize: 12, fontWeight: '700' as const },
-  streakSub: { fontSize: 12, marginTop: 1 },
-  footer: { borderTopWidth: 1, padding: 12, paddingHorizontal: 18, paddingBottom: 18, flexDirection: 'row' as const, gap: 8 },
-  copyBtn: { flex: 1, height: 48, borderRadius: 14, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6 },
-  copyBtnText: { fontSize: 14, fontWeight: '600' as const },
-  shareBtn: { flex: 1.4, height: 48, borderRadius: 14, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6 },
+  headerLabel:  { fontSize: 11, fontWeight: '700' as const, letterSpacing: 1.4, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase' as const },
+  closeBtn:     { width: 28, height: 28, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center' as const, justifyContent: 'center' as const },
+  headerEmoji:  { fontSize: 44, lineHeight: 52, marginBottom: 6 },
+  headerTitle:  { fontSize: 28, fontWeight: '700' as const, color: '#fff', lineHeight: 32 },
+  headerSub:    { fontSize: 14, color: 'rgba(255,255,255,0.9)', marginTop: 6 },
+  body:         { flex: 1 },
+  bodyContent:  { padding: 18, paddingHorizontal: 22, gap: 14 },
+  footer:       { borderTopWidth: 1, padding: 12, paddingHorizontal: 18, paddingBottom: 18, flexDirection: 'row' as const, gap: 8 },
+  copyBtn:      { flex: 1, height: 48, borderRadius: 14, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6 },
+  copyBtnText:  { fontSize: 14, fontWeight: '600' as const },
+  shareBtn:     { flex: 1.4, height: 48, borderRadius: 14, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6 },
   shareBtnText: { fontSize: 14, fontWeight: '600' as const, color: '#fff' },
+  // Copy sheet
+  sheetOverlay: { flex: 1, justifyContent: 'flex-end' as const },
+  sheetBackdrop:{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10,30,28,0.55)' },
+  sheet:        { backgroundColor: '#fafcfb', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: 32, maxHeight: '80%' as any },
+  sheetHandle:  { width: 40, height: 4, borderRadius: 2, backgroundColor: '#dde4e2', alignSelf: 'center' as const, marginBottom: 16 },
+  sheetTitle:   { fontSize: 22, fontWeight: '700' as const, marginBottom: 14 },
+  textBox:      { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, padding: 16, marginBottom: 16 },
+  textBoxText:  { fontSize: 13, lineHeight: 22 },
+  sheetCopyBtn: { height: 52, borderRadius: 16, alignItems: 'center' as const, justifyContent: 'center' as const },
+  sheetCopyTxt: { fontSize: 16, fontWeight: '700' as const, color: '#fff' },
+  // Share modal
+  shareModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center' as const, alignItems: 'center' as const, padding: 16 },
+  shareCardWrap: { borderRadius: 20, overflow: 'hidden' as const, width: '100%' as any },
+  shareActions:  { flexDirection: 'row' as const, gap: 10, marginTop: 14, width: '100%' as any },
+  shareCancelBtn:{ flex: 1, height: 48, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center' as const, justifyContent: 'center' as const },
+  shareCancelTxt:{ fontSize: 15, fontWeight: '600' as const, color: '#fff' },
+  shareConfirmBtn:{ flex: 2, height: 48, borderRadius: 14, backgroundColor: '#1a8273', alignItems: 'center' as const, justifyContent: 'center' as const },
+  shareConfirmTxt:{ fontSize: 15, fontWeight: '700' as const, color: '#fff' },
 }));
+
+// ─── Main screen ───────────────────────────────────────────
 
 export function RecapScreen({ onClose }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
-  const { width: screenWidth } = useWindowDimensions();
 
   const log        = useAppStore(s => s.log);
   const goalMl     = useAppStore(s => s.goalMl);
   const streak     = useAppStore(s => s.streak);
   const bestStreak = useAppStore(s => s.bestStreak);
 
-  // ViewShot ref apontado para o card off-screen
-  const viewShotRef = useRef<ViewShotRef>(null);
-  const [sharing, setSharing] = useState(false);
+  const [copySheetOpen,  setCopySheetOpen]  = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [sharing,        setSharing]        = useState(false);
+
+  // ref para o card dentro do Modal — está VISÍVEL quando o modal abre
+  const shareCardRef = useRef<View>(null);
 
   const stats = useMemo(
     () => computeDayStats(log, goalMl, streak, bestStreak),
     [log, goalMl, streak, bestStreak],
   );
-  const scenario = pickScenario(stats);
-  const cfg      = SCENARIO_CONFIG[scenario];
-  const insight  = useMemo(() => pickInsight(stats, WEEK_HISTORY_MOCK), [stats]);
+  const scenario  = pickScenario(stats);
+  const cfg       = SCENARIO_CONFIG[scenario];
+  const insight   = useMemo(() => pickInsight(stats, WEEK_HISTORY_MOCK), [stats]);
   const shareText = buildShareText(stats, insight);
 
   const dateStr = stats.date.toLocaleDateString('pt-BR', {
@@ -84,29 +88,36 @@ export function RecapScreen({ onClose }: Props) {
   }).toUpperCase();
 
   const pctStr = Math.min(Math.round(stats.pct * 100), 999);
+
   const streakBadgeSub = stats.streak === 0
     ? 'Beba sua meta amanhã pra recomeçar.'
     : stats.streak < 7
     ? `Faltam ${7 - stats.streak} dias pra "Semana hidratada".`
     : '7 dias seguidos. Semana hidratada! 🎉';
 
-  async function handleCopy() {
-    await Clipboard.setStringAsync(shareText);
-    ToastAndroid.show('Copiado! 📋', ToastAndroid.SHORT);
-  }
-
-  async function handleShare() {
+  // ── Captura o card visível no Modal e compartilha ──
+  async function captureAndShare() {
     if (sharing) return;
     setSharing(true);
     try {
-      // 1. Captura o card fixo off-screen como PNG
-      const uri = await viewShotRef.current?.capture();
-      if (!uri) throw new Error('capture failed');
+      // Aguarda o layout do card dentro do Modal
+      await new Promise(r => setTimeout(r, 350));
 
-      // 2. Copia o texto pra clipboard (usuário pode colar no WhatsApp depois da imagem)
+      if (!shareCardRef.current) throw new Error('ref not ready');
+
+      const uri = await captureRef(shareCardRef.current, {
+        format: 'png',
+        quality: 0.95,
+        result: 'tmpfile',
+      });
+
+      // Copia o texto pro clipboard simultaneamente
       await Clipboard.setStringAsync(shareText);
 
-      // 3. Abre o share nativo com a imagem
+      // Fecha o modal antes de abrir o share sheet nativo
+      setShareModalOpen(false);
+      await new Promise(r => setTimeout(r, 200));
+
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
         await Sharing.shareAsync(uri, {
@@ -115,13 +126,13 @@ export function RecapScreen({ onClose }: Props) {
           UTI: 'public.png',
         });
       } else {
-        // Fallback: share só texto via Share nativo
         await Share.share({ message: shareText });
       }
     } catch (err) {
+      setShareModalOpen(false);
       const msg = String(err);
       if (!msg.toLowerCase().includes('cancel')) {
-        ToastAndroid.show('Não foi possível compartilhar', ToastAndroid.SHORT);
+        ToastAndroid.show('Não foi possível gerar a imagem', ToastAndroid.LONG);
       }
     } finally {
       setSharing(false);
@@ -133,29 +144,9 @@ export function RecapScreen({ onClose }: Props) {
   return (
     <View style={styles.root}>
 
-      {/* ── Card off-screen capturável ── */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          left: -(screenWidth * 2),
-          top: 0,
-          width: screenWidth,
-        }}
-      >
-        <ViewShot
-          ref={viewShotRef}
-          options={{ format: 'png', quality: 0.95, result: 'tmpfile' }}
-        >
-          <ShareCard {...cardProps} />
-        </ViewShot>
-      </View>
-
-      {/* ── Tela principal ── */}
-
-      {/* Header */}
+      {/* ── Header colorido ── */}
       <View style={[styles.header, { backgroundColor: cfg.headerBg }]}>
-        <Text style={styles.headerEmojiBg}>{cfg.emoji}</Text>
+        <Text style={styles.headerBgEmoji}>{cfg.emoji}</Text>
         <View style={styles.headerTopRow}>
           <Text style={styles.headerLabel}>COPINHO · {dateStr}</Text>
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
@@ -167,31 +158,119 @@ export function RecapScreen({ onClose }: Props) {
         <Text style={styles.headerSub}>{cfg.getSub(stats)}</Text>
       </View>
 
-      {/* Body scrollável */}
-      <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
+      {/* ── Body scrollável ── */}
+      <ScrollView
+        style={styles.body}
+        contentContainerStyle={styles.bodyContent}
+        showsVerticalScrollIndicator={false}
+      >
         <RecapBody {...cardProps} />
       </ScrollView>
 
-      {/* Footer */}
+      {/* ── Footer ── */}
       <View style={[styles.footer, { borderTopColor: colors.line }]}>
         <TouchableOpacity
           style={[styles.copyBtn, { backgroundColor: colors.paper2 }]}
-          onPress={handleCopy} activeOpacity={0.7}
+          onPress={() => setCopySheetOpen(true)}
+          activeOpacity={0.7}
         >
           <Text style={[styles.copyBtnText, { color: colors.ink }]}>📋 Copiar</Text>
         </TouchableOpacity>
+
         <TouchableOpacity
-          style={[styles.shareBtn, { backgroundColor: colors.teal700, opacity: sharing ? 0.6 : 1 }]}
-          onPress={handleShare} activeOpacity={0.85} disabled={sharing}
+          style={[styles.shareBtn, { backgroundColor: colors.teal700 }]}
+          onPress={() => setShareModalOpen(true)}
+          activeOpacity={0.85}
         >
-          <Text style={styles.shareBtnText}>{sharing ? 'Gerando…' : '📤 Compartilhar'}</Text>
+          <Text style={styles.shareBtnText}>📤 Compartilhar</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ── Modal de preview do texto (Copiar) ── */}
+      <Modal
+        visible={copySheetOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCopySheetOpen(false)}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetBackdrop} onPress={() => setCopySheetOpen(false)} />
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={[styles.sheetTitle, { color: colors.ink }]}>Pré-visualizar texto</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={[styles.textBox, { borderColor: colors.line }]}>
+                <Text style={[styles.textBoxText, { color: colors.ink, fontFamily: 'monospace' }]}>
+                  {shareText}
+                </Text>
+              </View>
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.sheetCopyBtn, { backgroundColor: colors.teal700 }]}
+              onPress={async () => {
+                await Clipboard.setStringAsync(shareText);
+                setCopySheetOpen(false);
+                ToastAndroid.show('Copiado! Cole em qualquer chat 📋', ToastAndroid.SHORT);
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.sheetCopyTxt}>📋 Copiar texto</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal de preview da imagem (Compartilhar) ── */}
+      <Modal
+        visible={shareModalOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => !sharing && setShareModalOpen(false)}
+      >
+        <View style={styles.shareModalOverlay}>
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={{ alignItems: 'center' }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Card capturável — visível no Modal */}
+            <View
+              ref={shareCardRef}
+              collapsable={false}
+              style={styles.shareCardWrap}
+            >
+              <ShareCard {...cardProps} />
+            </View>
+
+            <View style={styles.shareActions}>
+              <TouchableOpacity
+                style={styles.shareCancelBtn}
+                onPress={() => !sharing && setShareModalOpen(false)}
+                activeOpacity={0.7}
+                disabled={sharing}
+              >
+                <Text style={styles.shareCancelTxt}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.shareConfirmBtn, sharing && { opacity: 0.6 }]}
+                onPress={captureAndShare}
+                activeOpacity={0.85}
+                disabled={sharing}
+              >
+                <Text style={styles.shareConfirmTxt}>
+                  {sharing ? 'Gerando…' : '📤 Compartilhar agora'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-// ─── Conteúdo compartilhado entre tela e card de captura ────
+// ─── ShareCard — card compacto sem ScrollView (captura + Modal) ────
 
 interface CardProps {
   stats: DayStats;
@@ -203,26 +282,29 @@ interface CardProps {
   colors: any;
 }
 
-/** Versão compacta sem ScrollView — usada pelo ViewShot para captura */
 function ShareCard({ stats, cfg, insight, dateStr, pctStr, streakBadgeSub, colors }: CardProps) {
   return (
     <View style={{ backgroundColor: colors.paper }}>
       {/* Header */}
-      <View style={{ backgroundColor: cfg.headerBg, padding: 20, paddingBottom: 24, overflow: 'hidden', position: 'relative' }}>
-        <Text style={{ position: 'absolute', right: -10, top: -8, fontSize: 110, opacity: 0.15, lineHeight: 120 }}>
+      <View style={{ backgroundColor: cfg.headerBg, padding: 20, paddingBottom: 22, overflow: 'hidden', position: 'relative' }}>
+        <Text style={{ position: 'absolute', right: -10, top: -8, fontSize: 100, opacity: 0.15, lineHeight: 110 }}>
           {cfg.emoji}
         </Text>
         <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 1.4, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', marginBottom: 10 }}>
           COPINHO · {dateStr}
         </Text>
-        <Text style={{ fontSize: 38, lineHeight: 44, marginBottom: 4 }}>{cfg.emoji}</Text>
-        <Text style={{ fontSize: 22, fontWeight: '700', color: '#fff', lineHeight: 26 }}>{cfg.getTitle(stats)}</Text>
-        <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 4 }}>{cfg.getSub(stats)}</Text>
+        <Text style={{ fontSize: 36, lineHeight: 42, marginBottom: 4 }}>{cfg.emoji}</Text>
+        <Text style={{ fontSize: 22, fontWeight: '700', color: '#fff', lineHeight: 26 }}>
+          {cfg.getTitle(stats)}
+        </Text>
+        <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 4 }}>
+          {cfg.getSub(stats)}
+        </Text>
       </View>
 
       {/* Body */}
-      <View style={{ padding: 16, gap: 10 }}>
-        {/* Hero chip */}
+      <View style={{ padding: 14, gap: 10 }}>
+        {/* Hero */}
         <View style={{ backgroundColor: cfg.chipBg, borderRadius: 14, padding: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
           <Text style={{ fontSize: 36, fontWeight: '700', color: cfg.chipFg, lineHeight: 40 }}>
             {(stats.ml / 1000).toFixed(1)}L
@@ -235,8 +317,8 @@ function ShareCard({ stats, cfg, insight, dateStr, pctStr, streakBadgeSub, color
         {/* Timeline */}
         <View style={{ flexDirection: 'row', gap: 6 }}>
           {([
-            ['🌅', 'PRIMEIRO', stats.firstTime ?? '—'],
-            ['🌙', 'ÚLTIMO',   stats.lastTime ?? '—'],
+            ['🌅', 'PRIMEIRO',  stats.firstTime ?? '—'],
+            ['🌙', 'ÚLTIMO',    stats.lastTime ?? '—'],
             ['⏱',  'INTERVALO', stats.avgGapStr],
           ] as [string, string, string][]).map(([icon, label, value]) => (
             <View key={label} style={{ flex: 1, backgroundColor: colors.paper2, borderRadius: 10, padding: 8, alignItems: 'center' }}>
@@ -248,13 +330,11 @@ function ShareCard({ stats, cfg, insight, dateStr, pctStr, streakBadgeSub, color
         </View>
 
         {/* Sips */}
-        <View style={{ padding: 12, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line }}>
+        <View style={{ padding: 11, paddingHorizontal: 13, borderRadius: 12, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line }}>
           <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 3 }}>
             📊 {stats.sips} gole{stats.sips !== 1 ? 's' : ''} · {stats.avgSip}ml médio
           </Text>
-          {stats.notes.map(n => (
-            <Text key={n} style={{ fontSize: 12, color: colors.inkMute }}>· {n}</Text>
-          ))}
+          {stats.notes.map(n => <Text key={n} style={{ fontSize: 12, color: colors.inkMute }}>· {n}</Text>)}
           {stats.sips === 0 && <Text style={{ fontSize: 12, color: colors.inkMute }}>· nada registrado hoje</Text>}
         </View>
 
@@ -267,7 +347,7 @@ function ShareCard({ stats, cfg, insight, dateStr, pctStr, streakBadgeSub, color
         </View>
 
         {/* Streak */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: `${colors.coralSoft}60`, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.coralSoft }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: `${colors.coralSoft}60`, borderRadius: 12, padding: 11, borderWidth: 1, borderColor: colors.coralSoft }}>
           <Text style={{ fontSize: 20 }}>{stats.streak > 0 ? '🔥' : '💔'}</Text>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 12, fontWeight: '700', color: colors.ink }}>
@@ -286,11 +366,11 @@ function ShareCard({ stats, cfg, insight, dateStr, pctStr, streakBadgeSub, color
   );
 }
 
-/** Versão com cores explícitas do tema para a tela scrollável */
+// ─── RecapBody — versão scrollável para a tela principal ─────
+
 function RecapBody({ stats, cfg, insight, pctStr, streakBadgeSub, colors }: CardProps) {
   return (
     <>
-      {/* Hero chip */}
       <View style={{ backgroundColor: cfg.chipBg, borderRadius: 18, padding: 16, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
         <Text style={{ fontSize: 44, fontWeight: '700', color: cfg.chipFg, lineHeight: 48 }}>
           {(stats.ml / 1000).toFixed(1)}L
@@ -300,11 +380,10 @@ function RecapBody({ stats, cfg, insight, pctStr, streakBadgeSub, colors }: Card
         </Text>
       </View>
 
-      {/* Timeline */}
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {([
-          ['🌅', 'PRIMEIRO', stats.firstTime ?? '—'],
-          ['🌙', 'ÚLTIMO',   stats.lastTime ?? '—'],
+          ['🌅', 'PRIMEIRO',  stats.firstTime ?? '—'],
+          ['🌙', 'ÚLTIMO',    stats.lastTime ?? '—'],
           ['⏱',  'INTERVALO', stats.avgGapStr],
         ] as [string, string, string][]).map(([icon, label, value]) => (
           <View key={label} style={{ flex: 1, backgroundColor: colors.paper2, borderRadius: 12, padding: 10, alignItems: 'center' }}>
@@ -315,18 +394,14 @@ function RecapBody({ stats, cfg, insight, pctStr, streakBadgeSub, colors }: Card
         ))}
       </View>
 
-      {/* Sips card */}
       <View style={{ padding: 12, paddingHorizontal: 14, borderRadius: 14, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line }}>
         <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 4 }}>
           📊 {stats.sips} gole{stats.sips !== 1 ? 's' : ''} · {stats.avgSip}ml médio
         </Text>
-        {stats.notes.map(n => (
-          <Text key={n} style={{ fontSize: 12, color: colors.inkMute }}>· {n}</Text>
-        ))}
+        {stats.notes.map(n => <Text key={n} style={{ fontSize: 12, color: colors.inkMute }}>· {n}</Text>)}
         {stats.sips === 0 && <Text style={{ fontSize: 12, color: colors.inkMute }}>· nada registrado hoje</Text>}
       </View>
 
-      {/* Insight pull quote */}
       <View style={{ padding: 14, paddingHorizontal: 16, borderRadius: 16, backgroundColor: colors.teal50, borderLeftWidth: 3, borderLeftColor: colors.teal500 }}>
         <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', color: colors.teal700, marginBottom: 4 }}>
           💬 O Copinho notou
@@ -334,7 +409,6 @@ function RecapBody({ stats, cfg, insight, pctStr, streakBadgeSub, colors }: Card
         <Text style={{ fontSize: 14, color: colors.ink, lineHeight: 20 }}>"{insight}"</Text>
       </View>
 
-      {/* Streak card */}
       <View style={{ padding: 12, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.coralSoft, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: `${colors.coralSoft}80` }}>
         <Text style={{ fontSize: 22 }}>{stats.streak > 0 ? '🔥' : '💔'}</Text>
         <View style={{ flex: 1 }}>
