@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { ScrollView, View, Text, TouchableOpacity, useWindowDimensions, Alert } from 'react-native';
 import { Flame, Plus, Trophy, ChevronRight, MoreHorizontal, Droplets, Volume2, VolumeX, Settings } from 'lucide-react-native';
 import { Bottle } from '../components/Bottle';
@@ -34,7 +34,7 @@ function todayLabel() {
 
 const useStyles = makeStyles(c => ({
   container: { flex: 1, backgroundColor: c.paper },
-  content: { paddingBottom: 120 },
+  content: { paddingBottom: 160 },
   header: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, paddingHorizontal: Spacing.screenH, paddingTop: 12, paddingBottom: 6, gap: 12 },
   headerText: { flex: 1 },
   headerSubtitle: { fontSize: FontSizes.base, fontWeight: '500' as const, color: c.teal700, letterSpacing: 0.5, textTransform: 'uppercase' as const },
@@ -88,8 +88,15 @@ export function HomeScreen({ onOpenAddSheet, onGoToBadges, onEditGoal, onPersona
   const remaining = Math.max(0, goalMl - currentMl);
   const pace = pct >= 0.5 ? 'ótimo' : 'lento';
 
+  const scrollRef = useRef<ScrollView>(null);
+  const logSectionY = useRef(0);
+
+  function scrollToLog() {
+    scrollRef.current?.scrollTo({ y: logSectionY.current, animated: true });
+  }
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text style={styles.headerSubtitle}>HOJE • {todayLabel()}</Text>
@@ -173,6 +180,24 @@ export function HomeScreen({ onOpenAddSheet, onGoToBadges, onEditGoal, onPersona
         </TouchableOpacity>
       </View>
 
+      {log.length > 0 && (
+        <TouchableOpacity
+          onPress={scrollToLog}
+          activeOpacity={0.7}
+          style={{
+            alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6,
+            paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999,
+            backgroundColor: colors.teal50, borderWidth: 1, borderColor: colors.teal300,
+            marginBottom: 8,
+          }}
+        >
+          <Droplets size={13} color={colors.teal700} strokeWidth={2} />
+          <Text style={{ fontSize: 12, fontWeight: '600', color: colors.teal700 }}>
+            {log.length} registro{log.length > 1 ? 's' : ''} hoje · ver ↓
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.section}>
         <View style={styles.sectionRow}><Text style={styles.sectionLabel}>Adicionar rápido</Text></View>
         <View style={styles.presetsGrid}>
@@ -186,7 +211,10 @@ export function HomeScreen({ onOpenAddSheet, onGoToBadges, onEditGoal, onPersona
         </TouchableOpacity>
       </View>
 
-      <View style={styles.section}>
+      <View
+        style={styles.section}
+        onLayout={e => { logSectionY.current = e.nativeEvent.layout.y; }}
+      >
         <View style={styles.sectionRow}>
           <Text style={styles.sectionLabel}>Histórico de hoje</Text>
           <Text style={styles.logCount}>{log.length} registros</Text>

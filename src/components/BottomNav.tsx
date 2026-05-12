@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, BarChart2, Plus, Trophy, Bell } from 'lucide-react-native';
 import { Screen } from '../store/useAppStore';
 import { Radii } from '../theme/tokens';
@@ -21,7 +22,7 @@ const RIGHT_TABS: { screen: Screen; label: string; Icon: any }[] = [
 ];
 
 const useStyles = makeStyles(c => ({
-  wrapper: { position: 'absolute' as const, bottom: 16, left: 16, right: 16, alignItems: 'center' as const },
+  wrapper: { position: 'absolute' as const, left: 16, right: 16, alignItems: 'center' as const },
   bar: {
     width: '100%' as const, flexDirection: 'row' as const, alignItems: 'center' as const,
     backgroundColor: c.white, borderRadius: Radii.xl,
@@ -46,8 +47,9 @@ const useStyles = makeStyles(c => ({
 export function BottomNav({ current, onNav, onAdd }: BottomNavProps) {
   const styles = useStyles();
   const { colors } = useTheme();
+  const { bottom } = useSafeAreaInsets();
   return (
-    <View style={styles.wrapper} pointerEvents="box-none">
+    <View style={[styles.wrapper, { bottom: 16 + bottom }]} pointerEvents="box-none">
       <View style={styles.bar}>
         {LEFT_TABS.map(t => (
           <NavTab key={t.screen} {...t} active={current === t.screen} onPress={() => onNav(t.screen)} colors={colors} styles={styles} />

@@ -13,7 +13,7 @@ type InsightTone = 'teal' | 'coral' | 'sun' | 'plum';
 
 const useStyles = makeStyles(c => ({
   container: { flex: 1, backgroundColor: c.paper },
-  content: { paddingBottom: 120 },
+  content: { paddingBottom: 160 },
   header: { paddingHorizontal: Spacing.screenH, paddingTop: 16, paddingBottom: 8 },
   subtitle: { fontSize: FontSizes.base, fontWeight: '500' as const, color: c.teal700, letterSpacing: 0.5, textTransform: 'uppercase' as const },
   title: { fontSize: FontSizes.h2, fontWeight: '600' as const, color: c.ink, marginTop: 2 },

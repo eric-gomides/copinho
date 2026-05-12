@@ -17,7 +17,7 @@ interface PersonalizeScreenProps {
 
 const useStyles = makeStyles(c => ({
   container: { flex: 1, backgroundColor: c.paper },
-  content: { paddingBottom: 120 },
+  content: { paddingBottom: 160 },
 
   header: {
     flexDirection: 'row' as const, alignItems: 'center' as const,
