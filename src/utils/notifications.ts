@@ -19,11 +19,13 @@ export function setupNotificationHandler(): void {
 }
 
 /**
- * Cancela todas as notificações agendadas e reagenda
- * apenas os reminders ativos, usando o trigger DAILY correto.
+ * Cancela tudo e reagenda lembretes ativos + notificação de recap das 23h.
+ * Fonte única de verdade — toda alteração de lembretes deve passar por aqui.
  */
 export async function scheduleReminders(reminders: Reminder[]): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
+
+  // Lembretes do usuário
   for (const r of reminders) {
     if (!r.on) continue;
     const [hour, minute] = r.time.split(':').map(Number);
@@ -40,19 +42,8 @@ export async function scheduleReminders(reminders: Reminder[]): Promise<void> {
       },
     });
   }
-}
 
-/**
- * Agenda notificação diária às 23h para o resumo do dia.
- * Cancela a anterior antes de reagendar.
- */
-export async function scheduleRecapNotification(): Promise<void> {
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  for (const n of scheduled) {
-    if (n.content.data?.type === 'recap') {
-      await Notifications.cancelScheduledNotificationAsync(n.identifier);
-    }
-  }
+  // Notificação diária do recap (23h) — sempre inclusa quando lembretes estão ativos
   await Notifications.scheduleNotificationAsync({
     content: {
       title: '📊 Copinho fez seu boletim',
@@ -69,8 +60,8 @@ export async function scheduleRecapNotification(): Promise<void> {
 }
 
 /**
- * Reagenda notificações ao abrir o app se o usuário já autorizou.
- * Garante que após reinstalar o APK os lembretes continuem funcionando.
+ * Reagenda tudo ao abrir o app, garantindo consistência após reinstalação.
+ * Não verifica o count antes — reagendar é idempotente e mais seguro.
  */
 export async function rescheduleOnStartup(
   notificationsEnabled: boolean,
@@ -80,11 +71,7 @@ export async function rescheduleOnStartup(
   try {
     const { status } = await Notifications.getPermissionsAsync();
     if (status !== 'granted') return;
-    // Só reagenda se não houver notificações já agendadas (ex: primeiro boot após reinstall)
-    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-    if (scheduled.length === 0) {
-      await scheduleReminders(reminders);
-    }
+    await scheduleReminders(reminders);
   } catch {
     // Fail silently — notificações são não-críticas
   }

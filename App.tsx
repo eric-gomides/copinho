@@ -33,7 +33,7 @@ import { Colors, FontSizes }    from './src/theme/tokens';
 import { SHADES }               from './src/theme/colorShades';
 import { initHealthConnect } from './src/utils/healthConnect';
 import { prewarm }           from './src/utils/sounds';
-import { setupNotificationHandler, rescheduleOnStartup, scheduleRecapNotification } from './src/utils/notifications';
+import { setupNotificationHandler, rescheduleOnStartup } from './src/utils/notifications';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { useBoolean }           from './src/hooks/useBoolean';
 
@@ -60,10 +60,8 @@ export default function App() {
   useEffect(() => {
     // Pre-warm sound synthesis (generates WAV once in background)
     prewarm();
-    // Reagenda notificações caso tenham sido apagadas (ex: após reinstalar o APK)
+    // Reagenda lembretes + recap ao abrir — idempotente, garante consistência
     rescheduleOnStartup(notificationsEnabled, reminders).catch(() => {});
-    // Agenda notificação diária de recap às 23h
-    if (notificationsEnabled) scheduleRecapNotification().catch(() => {});
     // Initialize Health Connect only — permissions requested lazily on first drink
     const timer = setTimeout(() => {
       initHealthConnect().catch(() => {});
