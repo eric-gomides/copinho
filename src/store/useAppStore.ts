@@ -94,13 +94,31 @@ export const DEFAULT_REMINDERS: Reminder[] = [
   { id: 6, time: '20:00', label: 'Jantar',             on: true,  msg: 'Reta final do dia',        template: true },
 ];
 
-// Fake week history (6 days before today)
-export const WEEK_HISTORY_MOCK = [3200, 4100, 2800, 4400, 3900, 4200];
+// ─── History helpers ─────────────────────────────────────────
+
+/** Chave de data no formato YYYY-MM-DD */
+export function dateKey(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Retorna array de 7 valores (últimos 6 dias + hoje).
+ * Dias sem registro retornam 0.
+ */
+export function getWeekHistory(history: Record<string, number>, todayMl: number): number[] {
+  const today = new Date();
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (6 - i));
+    return i === 6 ? Math.round(todayMl) : (history[dateKey(d)] ?? 0);
+  });
+}
 
 // ─── Store ──────────────────────────────────────────────────
 
 interface AppState {
   log: DrinkEntry[];
+  history: Record<string, number>;   // 'YYYY-MM-DD' → ml total do dia
   goalMl: number;
   streak: number;
   bestStreak: number;
@@ -134,6 +152,7 @@ interface AppState {
   setBottleColor: (c: BottleColorId) => void;
   setBottleShape: (s: BottleShapeId) => void;
   setReminderCreatePreset: (time: string | null) => void;
+  clearHistory: () => void;
 }
 
 const calcCurrentMl = (log: DrinkEntry[]) =>
@@ -186,6 +205,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
   log: [],
+  history: {},
   goalMl: 4000,
   streak: 0,
   bestStreak: 0,
@@ -288,6 +308,7 @@ export const useAppStore = create<AppState>()(
   setBottleColor: (c) => set({ bottleColor: c }),
   setBottleShape: (s) => set({ bottleShape: s }),
   setReminderCreatePreset: (time) => set({ reminderCreatePreset: time }),
+  clearHistory: () => set({ history: {} }),
     }),
     {
       name: 'copinho-store',
@@ -295,6 +316,7 @@ export const useAppStore = create<AppState>()(
       // Exclude transient UI state and non-serializable functions
       partialize: (state) => ({
         log:                 state.log,
+        history:             state.history,
         goalMl:              state.goalMl,
         streak:              state.streak,
         bestStreak:          state.bestStreak,
@@ -307,20 +329,37 @@ export const useAppStore = create<AppState>()(
         bottleColor:         state.bottleColor,
         bottleShape:         state.bottleShape,
       }),
-      // On rehydration: filter out log entries from previous days
-      // and reset goalMetToday if it's a new day
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         const todayLog = state.log.filter(e => isToday(e.timestamp));
         const newDay = state.log.length > 0 && todayLog.length === 0;
+
+        if (newDay) {
+          // Salva total de ontem antes de limpar o log
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const key = dateKey(yesterday);
+          const yesterdayMl = Math.round(calcCurrentMl(state.log));
+          if (yesterdayMl > 0) {
+            // Mantém só os últimos 90 dias
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 90);
+            const cutoffKey = dateKey(cutoff);
+            const pruned = Object.fromEntries(
+              Object.entries(state.history ?? {}).filter(([k]) => k >= cutoffKey)
+            );
+            state.history = { ...pruned, [key]: yesterdayMl };
+          }
+          state.goalMetToday = false;
+        }
+
         state.log = todayLog;
-        if (newDay) state.goalMetToday = false;
-        // Migrate reminders that predate the template field
+        state.history = state.history ?? {};
+        // Migra reminders sem o campo template
         state.reminders = state.reminders.map(r => ({
           ...r,
           template: r.template ?? (r.id >= 1 && r.id <= 6),
         }));
-        // Re-sync mute state to the sounds module
         if (state.soundsMuted) setMuted(true);
       },
     }

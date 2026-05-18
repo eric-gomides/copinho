@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { X } from 'lucide-react-native';
-import { useAppStore, WEEK_HISTORY_MOCK } from '../store/useAppStore';
+import { useAppStore } from '../store/useAppStore';
 import {
   computeDayStats, pickScenario, pickInsight,
   buildShareText, SCENARIO_CONFIG, DayStats,
@@ -53,6 +53,7 @@ export function RecapScreen({ onClose }: Props) {
   const { colors } = useTheme();
 
   const log        = useAppStore(s => s.log);
+  const history    = useAppStore(s => s.history);
   const goalMl     = useAppStore(s => s.goalMl);
   const streak     = useAppStore(s => s.streak);
   const bestStreak = useAppStore(s => s.bestStreak);
@@ -65,7 +66,8 @@ export function RecapScreen({ onClose }: Props) {
   );
   const scenario  = pickScenario(stats);
   const cfg       = SCENARIO_CONFIG[scenario];
-  const insight   = useMemo(() => pickInsight(stats, WEEK_HISTORY_MOCK), [stats]);
+  const historyVals = useMemo(() => Object.values(history), [history]);
+  const insight   = useMemo(() => pickInsight(stats, historyVals), [stats, historyVals]);
   const shareText = buildShareText(stats, insight);
 
   const dateStr = stats.date.toLocaleDateString('pt-BR', {

@@ -1,7 +1,7 @@
 import React from 'react';
-import { ScrollView, View, Text, TouchableOpacity } from 'react-native';
-import { Sun, Clock, Coffee, Droplets, BarChart2, Calendar, Flame, Bell } from 'lucide-react-native';
-import { useAppStore, WEEK_HISTORY_MOCK, LIQUID_MULTIPLIERS } from '../store/useAppStore';
+import { ScrollView, View, Text, TouchableOpacity, Alert } from 'react-native';
+import { Sun, Clock, Coffee, Droplets, BarChart2, Calendar, Flame, Bell, Trash2 } from 'lucide-react-native';
+import { useAppStore, getWeekHistory, LIQUID_MULTIPLIERS } from '../store/useAppStore';
 import { FontSizes, Spacing, Radii } from '../theme/tokens';
 import { makeStyles, useTheme } from '../theme/ThemeContext';
 
@@ -99,20 +99,34 @@ function InsightCard({ tone, icon, title, desc, cta }: InsightCardProps) {
 export function HistoryScreen({ onGoToReminders }: { onGoToReminders: () => void }) {
   const styles = useStyles();
   const { colors } = useTheme();
-  const goalMl = useAppStore(s => s.goalMl);
-  const log = useAppStore(s => s.log);
-  const streak = useAppStore(s => s.streak);
+  const goalMl     = useAppStore(s => s.goalMl);
+  const log        = useAppStore(s => s.log);
+  const history    = useAppStore(s => s.history);
+  const streak     = useAppStore(s => s.streak);
   const bestStreak = useAppStore(s => s.bestStreak);
-  const todayMl = Math.round(useAppStore(s => s.currentMl()));
+  const todayMl    = Math.round(useAppStore(s => s.currentMl()));
+  const clearHistory        = useAppStore(s => s.clearHistory);
   const setReminderCreatePreset = useAppStore(s => s.setReminderCreatePreset);
 
-  const vals: number[] = [...WEEK_HISTORY_MOCK, todayMl];
-  const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
-  const best = Math.max(...vals);
+  const vals: number[] = getWeekHistory(history, todayMl);
+  const hasHistoryData  = Object.keys(history).length > 0;
+  const avg    = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  const best   = Math.max(...vals);
   const metCount = vals.filter(v => v >= goalMl).length;
-  const dayIndex = new Date().getDay();
+  const dayIndex   = new Date().getDay();
   const mondayFirst = (dayIndex + 6) % 7;
   const shiftedDays = Array.from({ length: 7 }, (_, i) => DAYS[(mondayFirst - 6 + i + 7) % 7]);
+
+  function handleClearHistory() {
+    Alert.alert(
+      'Limpar histórico',
+      'Apaga todos os dados dos dias anteriores. O registro de hoje não é afetado.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Limpar', style: 'destructive', onPress: clearHistory },
+      ]
+    );
+  }
 
   // ── Compute insights from today's log ──
   const hasData = log.length >= 2;
@@ -140,9 +154,10 @@ export function HistoryScreen({ onGoToReminders }: { onGoToReminders: () => void
   }
   const intervalStr = avgIntervalMin > 0 ? `${Math.floor(avgIntervalMin / 60)}h${String(avgIntervalMin % 60).padStart(2, '0')}` : '–';
 
-  // Week comparison (today vs mock last week avg)
-  const lastWeekAvg = WEEK_HISTORY_MOCK.reduce((a, b) => a + b, 0) / WEEK_HISTORY_MOCK.length;
-  const weekChangePct = Math.round(((todayMl - lastWeekAvg) / lastWeekAvg) * 100);
+  // Week comparison (today vs 6-day average from history)
+  const pastVals     = vals.slice(0, 6).filter(v => v > 0);
+  const lastWeekAvg  = pastVals.length > 0 ? pastVals.reduce((a, b) => a + b, 0) / pastVals.length : 0;
+  const weekChangePct = lastWeekAvg > 0 ? Math.round(((todayMl - lastWeekAvg) / lastWeekAvg) * 100) : 0;
 
   function handleReminderCTA() {
     setReminderCreatePreset('14:30');
@@ -151,9 +166,20 @@ export function HistoryScreen({ onGoToReminders }: { onGoToReminders: () => void
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.subtitle}>ÚLTIMOS 7 DIAS</Text>
-        <Text style={styles.title}>Como foi sua semana</Text>
+      <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }]}>
+        <View>
+          <Text style={styles.subtitle}>ÚLTIMOS 7 DIAS</Text>
+          <Text style={styles.title}>Como foi sua semana</Text>
+        </View>
+        {hasHistoryData && (
+          <TouchableOpacity
+            onPress={handleClearHistory}
+            activeOpacity={0.7}
+            style={{ padding: 8, borderRadius: 10, backgroundColor: colors.paper2 }}
+          >
+            <Trash2 size={18} color={colors.coral} strokeWidth={2} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.statsRow}>
